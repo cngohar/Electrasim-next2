@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "ElectraSim v2.0 Homepage"
+version = "1.0.0"
+id = "artifacts/electrasim-v2"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18252
+
+[services.development]
+run = "pnpm --filter @workspace/electrasim-v2 run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/electrasim-v2", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/electrasim-v2/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18252"
+BASE_PATH = "/"
