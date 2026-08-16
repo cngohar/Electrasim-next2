@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://electrasim.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://electrasim.com/blog</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://electrasim.com/assistant</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://electrasim.com/assistant/cable-size</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/voltage-drop</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/load-calculator</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/ohms-law</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/circuit-protection</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/three-phase</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/energy-cost</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://electrasim.com/assistant/unit-converter</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+</urlset>
