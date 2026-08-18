@@ -1,6 +1,6 @@
 {
   "name": "ElectraSim v2",
-  "description": "Interactive electrical circuit simulator and learning platform",
+  "description": "Interactive electrical engineering suite, circuit simulator, battery backup 3D visualizer, cable & conduit fill sizing platform",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

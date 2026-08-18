@@ -4,6 +4,8 @@ import { Search, Calendar, Clock, ArrowLeft, ArrowRight, Sparkles, Tag, User, Bo
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { BLOG_POSTS, BlogPost } from '@/data/blogData';
+import { SEO } from '@/components/SEO';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 export default function Blog() {
   const [search, setSearch] = useState('');
@@ -34,9 +36,29 @@ export default function Blog() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans selection:bg-amber-500/20 selection:text-slate-900">
+      <SEO 
+        title={activePost ? `${activePost.title} | ElectraSim Engineering Blog` : 'Electrical Engineering Guides, NEC 2023 & Tutorials | ElectraSim Blog'}
+        description={activePost ? activePost.excerpt : 'Practical tutorials and guides for electricians and engineers on NEC 2023 cable sizing, conduit fill rules, voltage drop formulas, and circuit protection.'}
+        keywords="electrical engineering blog, NEC 2023 tutorial, cable sizing guide, conduit fill calculation, electrical safety, BS 7671 standards"
+        ogType={activePost ? 'article' : 'website'}
+      />
       <Navbar />
 
       <main className="flex-1 pt-24 pb-20">
+        <div className="max-w-7xl mx-auto px-6 mb-6">
+          <Breadcrumbs
+            items={
+              activePost
+                ? [
+                    { label: 'Engineering Blog', href: '/blog' },
+                    { label: activePost.title, active: true },
+                  ]
+                : [{ label: 'Engineering Blog & Guides', active: true }]
+            }
+            isDark={false}
+          />
+        </div>
+
         {activePost ? (
           /* Active Article Full View */
           <article className="max-w-4xl mx-auto px-6 animate-in fade-in duration-300">

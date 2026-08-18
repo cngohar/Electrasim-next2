@@ -32,8 +32,11 @@ import {
   Moon,
   History,
   FileJson,
+  FileText,
+  Search,
   Globe2,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Battery
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -52,8 +55,18 @@ import {
   StandardConductorSpec 
 } from '@/lib/standards';
 import { StandardComparisonModal } from '@/components/StandardComparisonModal';
+import { ConduitFillTool } from '@/components/ConduitFillTool';
+import { BatteryBackupTool } from '@/components/BatteryBackupTool';
+import { CommandPalette } from '@/components/CommandPalette';
+import { ScenarioComparisonModal } from '@/components/ScenarioComparisonModal';
+import { ProjectWorkspaceModal } from '@/components/ProjectWorkspaceModal';
+import { FormulaCodeAccordion } from '@/components/FormulaCodeAccordion';
+import { MobileStickySummaryRibbon } from '@/components/MobileStickySummaryRibbon';
+import { SEO } from '@/components/SEO';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 
-type ToolId = 'cablesize' | 'voltagedrop' | 'loadcalc' | 'ohms' | 'mcb_rcbo' | 'threephase' | 'energycost' | 'converter' | 'wire' | 'breaker';
+type ToolId = 'cablesize' | 'voltagedrop' | 'loadcalc' | 'ohms' | 'mcb_rcbo' | 'threephase' | 'energycost' | 'converter' | 'wire' | 'breaker' | 'conduit' | 'battery_backup';
 type Mode = 'simple' | 'advanced';
 
 // Help Modal Info Interface
@@ -217,6 +230,24 @@ const HELP_DICTIONARY: Record<string, HelpInfo> = {
     details: "1 Kilowatt-hour (kWh) equals 1000 Watts operating continuously for 1 hour. Multiply usage kWh by local electricity tariff rate ($/kWh) to determine daily, monthly, and annual operating costs.",
     formula: "kWh = (Power in Watts × Hours) / 1000 | Cost = kWh × Tariff Rate ($/kWh)",
     example: "3.5 kW Heat Pump running 8 hrs/day @ $0.18/kWh → 28 kWh/day = $5.04/day ($1,839/year)"
+  },
+  conduit_fill: {
+    title: "Conduit & Trunking Fill Capacity",
+    category: "Raceway & Sizing",
+    summary: "Determine allowable wire packing capacity (40% / 45% limit) and raceway sizing.",
+    details: "NEC Chapter 9 Table 1 enforces maximum fill limits: 53% for 1 wire, 31% for 2 wires, 40% for 3+ wires, and 60% for nipples (≤ 24\"). BS 7671 limits trunking space factor to 45% and uses unit cable factors for conduit.",
+    standard: "NEC Chapter 9 (Tables 1, 4 & 5) / BS 7671 Appendix 5",
+    formula: "Fill % = (Total Conductor Area / Raceway Inside Area) × 100% ≤ 40% (or 45%)",
+    example: "3/4\" EMT has 0.213 in² usable area (40%) → fits 3x 8 AWG + 1x 10 AWG THHN conductors safely."
+  },
+  battery_backup: {
+    title: "Battery Backup & Inverter Sizing",
+    category: "Energy Storage",
+    summary: "Calculate battery runtime, required capacity (Ah/kWh), inverter efficiency losses, and safe Depth of Discharge.",
+    details: "Battery backup time depends on usable capacity (Gross Wh × DoD) divided by total DC power draw (AC Load / Inverter Efficiency + Tare Loss). LiFePO4 chemistry safely allows 90% DoD, while Lead-Acid/AGM is capped at 50% DoD.",
+    standard: "IEEE 485 / UL 1973 Battery Storage Standards",
+    formula: "Backup Hours = (Battery Ah × Voltage × DoD) / ((Load Watts / Inverter Eff.) + Tare Watts)",
+    example: "24V 200Ah LiFePO4 (4.32 kWh usable) powering 350W load @ 92% inverter eff. → ~11 Hours 30 Mins backup."
   }
 };
 
@@ -397,6 +428,43 @@ export default function ElectricalAssistant() {
         if (entry.inputs.ohmsI) setOhmsI(Number(entry.inputs.ohmsI));
         if (entry.inputs.ohmsR) setOhmsR(Number(entry.inputs.ohmsR));
         if (entry.inputs.ohmsP) setOhmsP(Number(entry.inputs.ohmsP));
+      }
+    }
+  };
+
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isScenarioComparisonOpen, setIsScenarioComparisonOpen] = useState(false);
+  const [isProjectWorkspaceOpen, setIsProjectWorkspaceOpen] = useState(false);
+
+  // Global Keyboard Listener for Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSelectCommandPaletteTool = (toolId: string, payload?: any) => {
+    if (toolId && toolsList.some((t) => t.id === toolId)) {
+      setActiveTool(toolId as ToolId);
+      if (payload) {
+        if (toolId === 'cablesize') {
+          if (payload.voltage) setCsVoltage(payload.voltage);
+          if (payload.current) setCsPowerWatts(payload.current * (payload.voltage || csVoltage));
+          if (payload.distance) setCsLengthMeters(payload.distance);
+        } else if (toolId === 'threephase') {
+          if (payload.voltage) setTpLineVoltage(payload.voltage);
+          if (payload.powerFactor) setTpPF(payload.powerFactor);
+          if (payload.hp) {
+            const kw = payload.hp * 0.7457;
+            const amps = (kw * 1000) / (Math.sqrt(3) * (payload.voltage || tpLineVoltage) * (payload.powerFactor || tpPF));
+            setTpLineCurrent(Math.round(amps));
+          }
+        }
       }
     }
   };
@@ -1724,18 +1792,129 @@ export default function ElectricalAssistant() {
       iconBg: 'bg-cyan-500/10 text-cyan-600',
       desc: 'Convert seamlessly between Watts, Horsepower (HP), Kilowatts (kW), kVA, and Thermal BTUs.',
     },
+    {
+      id: 'conduit' as ToolId,
+      name: '📏 Conduit & Trunking Fill Sizer',
+      badge: '2D & 3D Packing Visualizer',
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+      icon: Box,
+      iconBg: 'bg-blue-500/10 text-blue-600',
+      desc: 'Size raceways per NEC Ch. 9 & BS 7671 (40%/45% fill rules), 3-wire jamming ratios, thermal grouping derating, and interactive 2D/3D wire bundle packing.',
+    },
+    {
+      id: 'battery_backup' as ToolId,
+      name: '🔋 Battery Backup & Inverter Sizer',
+      badge: '3D Energy Flow & Sizing',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      icon: Battery,
+      iconBg: 'bg-emerald-500/10 text-emerald-600',
+      desc: 'Calculate battery backup runtime, reverse size battery banks (Ah/kWh) for target hours, and view animated 3D Battery → Inverter → Load energy flow.',
+    },
   ];
+
+  // Helper for Dynamic Page SEO Optimization
+  const getSeoForTool = (toolId: ToolId | null, std: ElectricalStandard) => {
+    if (!toolId) {
+      return {
+        title: `Electrical Engineering Suite (${std} Standard) — 11 Interactive Sizing & Simulation Tools`,
+        description: `Comprehensive electrical engineering calculation suite for electricians, solar designers, and engineers. Dual-standard ${std} calculations for 3D battery backup, conduit packing, cable sizing, voltage drop, and circuit breakers.`,
+        keywords: `electrical calculations, electrical assistant, ${std} cable sizing, conduit fill calculator, 3d battery backup sizer, inverter calculator, voltage drop, MCB selector, three phase power`
+      };
+    }
+
+    const toolMetaMap: Record<ToolId, { title: string; description: string; keywords: string }> = {
+      battery_backup: {
+        title: '3D Battery Backup & Inverter Sizing Simulator | ElectraSim',
+        description: 'Interactive 3D energy flow simulator & battery runtime calculator. Calculate battery capacity (Ah/kWh), runtime duration, inverter efficiency, and depth of discharge for LiFePO4, AGM, and Gel batteries with live 3D hardware physics.',
+        keywords: 'battery backup calculator, inverter sizer, 3d battery simulation, LiFePO4 battery sizer, solar battery bank calculator, battery runtime calculator, inverter efficiency calculator, IEEE 485'
+      },
+      conduit: {
+        title: 'Conduit & Trunking Fill Sizer (NEC Chapter 9 & BS 7671) | ElectraSim',
+        description: 'Interactive 2D & 3D conductor packing and conduit fill sizer adhering to NEC Chapter 9 Table 1 (40% max fill rule) and BS 7671 trunking space factors. Prevents conductor jamming and thermal overheating.',
+        keywords: 'conduit fill calculator, trunking fill calculator, NEC chapter 9 table 1, 40% conduit fill rule, wire jamming ratio, electrical raceway sizing'
+      },
+      cablesize: {
+        title: `Cable Sizing & Ampacity Calculator (${std} Standards) | ElectraSim`,
+        description: `Calculate optimal conductor cross-sectional area (mm² / AWG) under ${std === 'NEC' ? 'NEC 2023 Table 310.16' : 'IEC 60364-5-52 / BS 7671'}. Applies thermal, grouping, and installation derating factors.`,
+        keywords: 'cable sizing calculator, wire size calculator, conductor ampacity, NEC 310.16, IEC 60364, BS 7671 cable sizing, electrical wire gauge'
+      },
+      voltagedrop: {
+        title: 'Voltage Drop Calculator & Maximum Circuit Distance | ElectraSim',
+        description: 'Calculate voltage drop percentage (ΔV%), line-to-line loss, and maximum allowable cable run distance adhering to NEC 3%/5% and IEC recommendations.',
+        keywords: 'voltage drop calculator, maximum cable distance, wire resistance calculator, electrical voltage loss, 3% voltage drop rule'
+      },
+      loadcalc: {
+        title: 'Electrical Load & Service Feeder Sizer | ElectraSim',
+        description: 'Calculate total connected electrical load, apply continuous load 125% safety margins, demand & diversity factors, and size main service entrance breakers.',
+        keywords: 'electrical load calculator, demand factor calculator, service entrance sizing, panel schedule load, continuous load 125%'
+      },
+      ohms: {
+        title: "Ohm's Law & AC Power Matrix Calculator | ElectraSim",
+        description: "Interactive Ohm's Law and AC power circle calculator. Solve for Voltage (V), Current (I), Resistance (R), Power (W), Apparent Power (VA), and Reactive Power (VAR).",
+        keywords: 'ohms law calculator, electrical power calculator, power factor formula, AC power circle, voltage current resistance calculator'
+      },
+      mcb_rcbo: {
+        title: 'MCB & RCBO Protective Circuit Breaker Selector | ElectraSim',
+        description: 'Select miniature circuit breakers and residual current devices by trip curves (Type B, C, D) and short circuit kA breaking capacity.',
+        keywords: 'mcb selector, rcbo trip curves, type B C D circuit breakers, breaking capacity kA, protective device sizing'
+      },
+      threephase: {
+        title: 'Three-Phase Power, Current & Power Factor Correction Sizer | ElectraSim',
+        description: 'Calculate 3-phase Active Power (kW), Reactive Power (kVAR), Apparent Power (kVA), Line Current, and Power Factor correction capacitor sizing for Star & Delta systems.',
+        keywords: 'three phase power calculator, star delta calculator, power factor correction, kVAR capacitor sizing, line current calculator'
+      },
+      energycost: {
+        title: 'Electrical Energy Cost & Carbon Footprint Estimator | ElectraSim',
+        description: 'Estimate daily, monthly, and annual electricity costs with tiered peak/off-peak tariffs and calculate CO₂ emissions footprint.',
+        keywords: 'electricity cost calculator, energy consumption estimator, peak off peak tariff calculator, carbon footprint kWh'
+      },
+      converter: {
+        title: 'Electrical Unit Converter (kW, kVA, HP, Amps, Watts) | ElectraSim',
+        description: 'Instant conversion between Watts, Kilowatts, Horsepower, kVA, and Amps at specified AC power factor and voltage levels.',
+        keywords: 'kw to hp converter, kva to kw calculator, amps to watts converter, horsepower to kilowatt converter'
+      },
+      wire: {
+        title: 'Wire Gauge Specs & Resistance Table (AWG / Metric mm²) | ElectraSim',
+        description: 'Comprehensive AWG and metric mm² conductor specifications, copper and aluminum resistance per kilometer, and maximum continuous ampacity.',
+        keywords: 'awg to mm2 converter, wire gauge table, copper resistance per km, aluminum conductor ampacity'
+      },
+      breaker: {
+        title: 'Panel Circuit Breaker & Appliance Diversity Sizer | ElectraSim',
+        description: 'Size branch circuit breakers and panel boards for residential and commercial multi-appliance branch circuits.',
+        keywords: 'circuit breaker sizing, appliance load calculator, branch circuit breaker, panel schedule sizing'
+      }
+    };
+
+    return toolMetaMap[toolId] || {
+      title: 'Electrical Assistant Suite | ElectraSim',
+      description: 'Professional electrical engineering calculation suite.',
+      keywords: 'electrical engineering tools, circuit calculator'
+    };
+  };
 
   if (!activeTool) {
     const isDark = theme === 'dark';
+    const seoInfo = getSeoForTool(null, standard);
     return (
       <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-blue-500/20 ${
         isDark ? 'bg-slate-950 text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
       }`}>
+        <SEO 
+          title={seoInfo.title}
+          description={seoInfo.description}
+          keywords={seoInfo.keywords}
+        />
         <Navbar theme={theme} />
 
         <main className="flex-1 pt-24 pb-16">
           <div className="max-w-7xl mx-auto px-6">
+            <div className="mb-6">
+              <Breadcrumbs
+                items={[{ label: 'Electrical Assistant Suite', active: true }]}
+                isDark={isDark}
+              />
+            </div>
+
             <div className="text-center max-w-3xl mx-auto mb-10">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-mono font-semibold uppercase tracking-wider mb-4">
                 <Sparkles size={14} />
@@ -1827,7 +2006,60 @@ export default function ElectricalAssistant() {
               </div>
 
               {/* Theme Toggle & History Log Button Bar */}
-              <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+              <div className="flex items-center justify-center gap-2.5 mt-4 flex-wrap">
+                {/* Command Palette Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsCommandPaletteOpen(true)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                    isDark
+                      ? 'bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30 shadow-md ring-1 ring-blue-400/20'
+                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 shadow-sm'
+                  }`}
+                  title="Search Tools & Presets (Press Cmd+K / Ctrl+K)"
+                >
+                  <Search size={14} className="text-blue-500" />
+                  <span>Search & Presets</span>
+                  <span className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
+                    ⌘K
+                  </span>
+                </button>
+
+                {/* A/B Comparison Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsScenarioComparisonOpen(true)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                    isDark
+                      ? 'bg-slate-900 text-purple-400 border-slate-700 hover:bg-slate-800 shadow-md'
+                      : 'bg-white text-purple-700 border-slate-200 hover:bg-purple-50 shadow-sm'
+                  }`}
+                  title="Side-by-Side A/B Scenario Analyzer (Cu vs Al, LiFePO4 vs AGM, 12V vs 48V)"
+                >
+                  <Scale size={14} className="text-purple-500" />
+                  <span>A/B Comparison</span>
+                </button>
+
+                {/* Project Workspace Dossier Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsProjectWorkspaceOpen(true)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                    isDark
+                      ? 'bg-slate-900 text-emerald-400 border-slate-700 hover:bg-slate-800 shadow-md'
+                      : 'bg-white text-emerald-700 border-slate-200 hover:bg-emerald-50 shadow-sm'
+                  }`}
+                  title="Generate Engineering Submittal Project Dossier"
+                >
+                  <FileText size={14} className="text-emerald-500" />
+                  <span>Project Dossier</span>
+                  {history.length > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-mono font-bold rounded-full bg-emerald-500/20 text-emerald-400">
+                      {history.length}
+                    </span>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={toggleTheme}
@@ -1839,12 +2071,7 @@ export default function ElectricalAssistant() {
                   title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
                 >
                   {isDark ? <Moon size={15} className="text-amber-400" /> : <Sun size={15} className="text-amber-500" />}
-                  <span>{isDark ? 'Dark Theme Enabled' : 'Light Theme Enabled'}</span>
-                  <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-full font-bold ml-1 ${
-                    isDark ? 'bg-amber-400/20 text-amber-300' : 'bg-blue-50 text-blue-600 border border-blue-200'
-                  }`}>
-                    {theme}
-                  </span>
+                  <span>{isDark ? 'Dark Theme' : 'Light Theme'}</span>
                 </button>
 
                 <button
@@ -1858,10 +2085,7 @@ export default function ElectricalAssistant() {
                   title="View Saved Calculation History Log"
                 >
                   <History size={15} className="text-amber-500" />
-                  <span>Calculation History</span>
-                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-amber-500/20 text-amber-400">
-                    {history.length}
-                  </span>
+                  <span>History ({history.length})</span>
                 </button>
               </div>
             </div>
@@ -1883,6 +2107,32 @@ export default function ElectricalAssistant() {
               onClose={() => setIsStandardModalOpen(false)}
               currentStandard={standard}
               onSelectStandard={handleStandardChange}
+              isDark={isDark}
+            />
+
+            {/* Command Palette Modal */}
+            <CommandPalette
+              isOpen={isCommandPaletteOpen}
+              onClose={() => setIsCommandPaletteOpen(false)}
+              onSelectTool={handleSelectCommandPaletteTool}
+              onSelectStandard={handleStandardChange}
+              currentStandard={standard}
+              isDark={isDark}
+            />
+
+            {/* Scenario Comparison Modal */}
+            <ScenarioComparisonModal
+              isOpen={isScenarioComparisonOpen}
+              onClose={() => setIsScenarioComparisonOpen(false)}
+              isDark={isDark}
+            />
+
+            {/* Project Workspace Dossier Modal */}
+            <ProjectWorkspaceModal
+              isOpen={isProjectWorkspaceOpen}
+              onClose={() => setIsProjectWorkspaceOpen(false)}
+              historyEntries={history}
+              onClearHistory={handleClearHistory}
               isDark={isDark}
             />
 
@@ -2012,6 +2262,7 @@ export default function ElectricalAssistant() {
 
   // Render Full Screen Workspace when a Tool is Active
   const isDark = theme === 'dark';
+  const currentToolSeo = getSeoForTool(activeTool, standard);
 
   return (
     <div 
@@ -2022,6 +2273,11 @@ export default function ElectricalAssistant() {
         if (isNavOpen) setIsNavOpen(false);
       }}
     >
+      <SEO 
+        title={currentToolSeo.title}
+        description={currentToolSeo.description}
+        keywords={currentToolSeo.keywords}
+      />
       {/* Navigation Overlay Backdrop - Clicking anywhere outside hides navigation menu */}
       {isNavOpen && (
         <div 
@@ -2219,6 +2475,51 @@ export default function ElectricalAssistant() {
 
         {/* Right: Quick Actions */}
         <div className="flex items-center gap-2">
+          {/* Search / Command Palette Quick Button */}
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isDark
+                ? 'text-blue-400 bg-blue-950/40 hover:bg-blue-900/50 border-blue-800/60 shadow-2xs'
+                : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 shadow-2xs'
+            }`}
+            title="Open Command Palette & Presets (⌘K)"
+          >
+            <Search size={13} className="text-blue-500" />
+            <span className="font-mono text-[10px] font-bold">⌘K</span>
+          </button>
+
+          {/* A/B Comparison Quick Button */}
+          <button
+            type="button"
+            onClick={() => setIsScenarioComparisonOpen(true)}
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isDark
+                ? 'text-purple-400 bg-slate-800 hover:bg-slate-700 border-slate-700/80 shadow-2xs'
+                : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200 shadow-2xs'
+            }`}
+            title="Open A/B Scenario Comparison Matrix"
+          >
+            <Scale size={13} className="text-purple-500" />
+            <span>A/B Compare</span>
+          </button>
+
+          {/* Project Dossier Button */}
+          <button
+            type="button"
+            onClick={() => setIsProjectWorkspaceOpen(true)}
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isDark
+                ? 'text-emerald-400 bg-slate-800 hover:bg-slate-700 border-slate-700/80 shadow-2xs'
+                : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 shadow-2xs'
+            }`}
+            title="Generate Engineering Submittal Project Dossier"
+          >
+            <FileText size={13} className="text-emerald-500" />
+            <span>Dossier</span>
+          </button>
+
           {/* Dual-Standard Toggle Pill & Modal Trigger */}
           <div className={`flex items-center rounded-lg border p-0.5 ${
             isDark ? 'bg-slate-800 border-slate-700/80' : 'bg-slate-100 border-slate-200'
@@ -2262,6 +2563,11 @@ export default function ElectricalAssistant() {
               {history.length}
             </span>
           </button>
+
+          {/* Real-time Performance & Frame Rate Diagnostics */}
+          <div className="hidden lg:block">
+            <PerformanceMonitor isDark={isDark} />
+          </div>
 
           {/* Theme Toggle Button */}
           <button
@@ -2317,6 +2623,17 @@ export default function ElectricalAssistant() {
 
       {/* Main Fullscreen Tool Canvas/Workspace Content */}
       <div className="flex-1 overflow-y-auto relative p-3 sm:p-4">
+        {/* Responsive Breadcrumb Navigation Strip */}
+        <div className="mb-3">
+          <Breadcrumbs
+            items={[
+              { label: 'Electrical Assistant', href: '/assistant' },
+              { label: toolsList.find((t) => t.id === activeTool)?.name || 'Active Sizer', active: true },
+            ]}
+            isDark={isDark}
+          />
+        </div>
+
         {/* Preset Notification Toast Banner */}
         {presetToast && (
           <div className="fixed top-16 right-6 z-50 bg-emerald-600 text-white px-3.5 py-2 rounded-xl shadow-2xl border border-emerald-400/30 text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-200">
@@ -5777,6 +6094,28 @@ export default function ElectricalAssistant() {
               );
             })()}
 
+            {/* ========================================================= */}
+            {/* TOOL 10: CONDUIT & TRUNKING FILL SIZER (2D / 3D PACKING) */}
+            {/* ========================================================= */}
+            {activeTool === 'conduit' && (
+              <ConduitFillTool
+                standard={standard}
+                onStandardChange={handleStandardChange}
+                onSaveToHistory={handleSaveToHistory}
+                isDark={isDark}
+              />
+            )}
+
+            {/* ========================================================= */}
+            {/* TOOL 11: BATTERY BACKUP & INVERTER SIZER (3D ENERGY FLOW) */}
+            {/* ========================================================= */}
+            {activeTool === 'battery_backup' && (
+              <BatteryBackupTool
+                onSaveToHistory={handleSaveToHistory}
+                isDark={isDark}
+              />
+            )}
+
         {/* Footer Container Watermark Logo on Bottom Right */}
         <div className="fixed bottom-3 right-4 z-20 pointer-events-none flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/85 backdrop-blur-md border border-slate-800 text-slate-300 text-xs font-mono shadow-xl">
           <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
@@ -5784,6 +6123,52 @@ export default function ElectricalAssistant() {
           <span className="text-[10px] text-slate-500 font-mono">Workspace</span>
         </div>
       </div>
+
+      {/* Command Palette Modal */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectTool={handleSelectCommandPaletteTool}
+        onSelectStandard={handleStandardChange}
+        currentStandard={standard}
+        isDark={isDark}
+      />
+
+      {/* Scenario Comparison Modal */}
+      <ScenarioComparisonModal
+        isOpen={isScenarioComparisonOpen}
+        onClose={() => setIsScenarioComparisonOpen(false)}
+        isDark={isDark}
+      />
+
+      {/* Project Workspace Dossier Modal */}
+      <ProjectWorkspaceModal
+        isOpen={isProjectWorkspaceOpen}
+        onClose={() => setIsProjectWorkspaceOpen(false)}
+        historyEntries={history}
+        onClearHistory={handleClearHistory}
+        isDark={isDark}
+      />
+
+      {/* Calculation History Log Modal */}
+      <CalculationHistoryLog
+        history={history}
+        onClearHistory={handleClearHistory}
+        onRemoveEntry={handleRemoveHistoryEntry}
+        onSelectEntry={handleSelectHistoryEntry}
+        isDark={isDark}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
+
+      {/* Standard Comparison Modal */}
+      <StandardComparisonModal
+        isOpen={isStandardModalOpen}
+        onClose={() => setIsStandardModalOpen(false)}
+        currentStandard={standard}
+        onSelectStandard={handleStandardChange}
+        isDark={isDark}
+      />
 
       {/* Global Interactive Help Modal Popup */}
       {helpModalInfo && (
