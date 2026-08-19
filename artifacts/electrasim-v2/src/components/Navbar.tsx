@@ -18,7 +18,6 @@ export default function Navbar({ theme = 'light' }: NavbarProps) {
   const LINKS = [
     { href: isHome ? '#features' : '/#features', label: 'Features', isPage: false },
     { href: isHome ? '#guide' : '/#guide', label: 'Guide', isPage: false },
-    { href: '/assistant', label: 'Assistant', isPage: true },
     { href: '/blog', label: 'Blog', isPage: true },
     { href: isHome ? '#compare' : '/#compare', label: 'Compare', isPage: false },
     { href: isHome ? '#about' : '/#about', label: 'About', isPage: false },
@@ -70,21 +69,6 @@ export default function Navbar({ theme = 'light' }: NavbarProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/assistant"
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              isDark
-                ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
-                : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-            }`}
-            title="Search Tools & Calculations (⌘K)"
-          >
-            <span>Search Tools</span>
-            <kbd className="px-1.5 py-0.5 rounded-md text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xs">
-              ⌘K
-            </kbd>
-          </Link>
-
           <a
             href="https://electrasim.com/app/"
             className={`hidden sm:flex items-center gap-2 px-5 py-2 rounded-full font-semibold text-sm transition-all duration-200 ${

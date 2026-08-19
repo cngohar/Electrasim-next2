@@ -11,7 +11,6 @@
   "scripts": {
     "dev": "npm run dev --workspace=@workspace/electrasim-v2",
     "build": "npm run build --workspace=@workspace/electrasim-v2",
-    "test:assistant": "node scripts/assistant-regression.cjs",
     "typecheck:libs": "tsc --build --force",
     "typecheck": "npm run typecheck:libs && npm run typecheck --workspaces --if-present",
     "lint": "npm run typecheck"
@@ -22,7 +21,6 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
-    "playwright": "^1.54.2",
     "prettier": "^3.9.5",
     "typescript": "~5.9.3"
   }
